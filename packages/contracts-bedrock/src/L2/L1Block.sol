@@ -137,34 +137,77 @@ contract L1Block is ISemver, IGasToken {
         _setL1BlockValuesEcotone();
     }
 
-    /// @notice Updates the L1 block values for an Ecotone upgraded chain.
-    /// Params are packed and passed in as raw msg.data instead of ABI to reduce calldata size.
-    /// Params are expected to be in the following order:
-    ///   1. _baseFeeScalar      L1 base fee scalar
-    ///   2. _blobBaseFeeScalar  L1 blob base fee scalar
-    ///   3. _sequenceNumber     Number of L2 blocks since epoch start.
-    ///   4. _timestamp          L1 timestamp.
-    ///   5. _number             L1 blocknumber.
-    ///   6. _basefee            L1 base fee.
-    ///   7. _blobBaseFee        L1 blob base fee.
-    ///   8. _hash               L1 blockhash.
-    ///   9. _batcherHash        Versioned hash to authenticate batcher by.
+    /// @notice Updates the L1 block values for an Ecotone upgraded chain (inline assembly).
+    /// Scales L1 fee scalars into CGT terms using a RAY (1e27) factor before storing.
+    /// Preserves the original sstore pattern for the packed slot.
     function _setL1BlockValuesEcotone() internal {
         address depositor = DEPOSITOR_ACCOUNT();
         assembly {
             // Revert if the caller is not the depositor account.
             if xor(caller(), depositor) {
-                mstore(0x00, 0x3cc50b45) // 0x3cc50b45 is the 4-byte selector of "NotDepositor()"
-                revert(0x1C, 0x04) // returns the stored 4-byte selector from above
+                // 0x3cc50b45 is the 4-byte selector of "NotDepositor()"
+                mstore(0x00, 0x3cc50b45)
+                revert(0x1C, 0x04) // return the stored 4-byte selector
             }
-            // sequencenum (uint64), blobBaseFeeScalar (uint32), baseFeeScalar (uint32)
-            sstore(sequenceNumber.slot, shr(128, calldataload(4)))
-            // number (uint64) and timestamp (uint64)
-            sstore(number.slot, shr(128, calldataload(20)))
-            sstore(basefee.slot, calldataload(36)) // uint256
-            sstore(blobBaseFee.slot, calldataload(68)) // uint256
-            sstore(hash.slot, calldataload(100)) // bytes32
-            sstore(batcherHash.slot, calldataload(132)) // bytes32
+
+            // ------------------------------------------------------------
+            // Calldata layout (starting right after the 4-byte selector):
+            // word @ +4  : [ baseFeeScalar(4) | blobBaseFeeScalar(4) | sequenceNumber(8) | timestamp(8) | number(8) ]
+            // word @ +36 : basefee (uint256)
+            // word @ +68 : blobBaseFee (uint256)
+            // word @ +100: hash (bytes32)
+            // word @ +132: batcherHash (bytes32)
+            // ------------------------------------------------------------
+
+            // Load the packed first word
+            let w0 := calldataload(4)
+
+            // Extract fields from w0
+            let baseFeeScalarRaw      := shr(224, w0)                          // uint32
+            let blobBaseFeeScalarRaw  := and(shr(192, w0), 0xffffffff)         // uint32
+            let sequenceNumberVal     := and(shr(128, w0), 0xffffffffffffffff) // uint64
+            let timestampVal          := and(shr(64,  w0), 0xffffffffffffffff) // uint64
+            let numberVal             := and(        w0,  0xffffffffffffffff)  // uint64
+
+            // Load remaining words
+            let basefeeVal            := calldataload(36)   // uint256
+            let blobBaseFeeVal        := calldataload(68)   // uint256
+            let hashVal               := calldataload(100)  // bytes32
+            let batcherHashVal        := calldataload(132)  // bytes32
+
+            // -------------------------------
+            // Read CGT/ETH rate (RAY, 1e27)
+            // -------------------------------
+            let rate := sload(cgtPerEthRay.slot)
+            // RAY = 1e27
+            let RAY := 1000000000000000000000000000
+
+            // Scale baseFeeScalar and blobBaseFeeScalar (uint32) by rate, clamp to uint32 max
+            // scaled = min( (raw * rate) / RAY, 0xffffffff )
+            let scaledBase := div(mul(baseFeeScalarRaw, rate), RAY)
+            if gt(scaledBase, 0xffffffff) { scaledBase := 0xffffffff }
+
+            let scaledBlob := div(mul(blobBaseFeeScalarRaw, rate), RAY)
+            if gt(scaledBlob, 0xffffffff) { scaledBlob := 0xffffffff }
+
+            // ------------------------------------------------------------
+            // Store to state preserving original sstore pattern:
+            // 1) sequenceNumber.slot packs (low 16 bytes):
+            //    [ baseFeeScalar(uint32) | blobBaseFeeScalar(uint32) | sequenceNumber(uint64) ]
+            // ------------------------------------------------------------
+            let packSeqScalars := or(or(shl(96, scaledBase), shl(64, scaledBlob)), sequenceNumberVal)
+            sstore(sequenceNumber.slot, packSeqScalars)
+
+            // 2) number.slot packs (low 16 bytes):
+            //    [ timestamp(uint64) | number(uint64) ]
+            let packNumTs := or(shl(64, timestampVal), numberVal)
+            sstore(number.slot, packNumTs)
+
+            // 3) Direct stores for remaining fields
+            sstore(basefee.slot,     basefeeVal)
+            sstore(blobBaseFee.slot, blobBaseFeeVal)
+            sstore(hash.slot,        hashVal)
+            sstore(batcherHash.slot, batcherHashVal)
         }
     }
 
@@ -177,5 +220,33 @@ contract L1Block is ISemver, IGasToken {
         GasPayingToken.set({ _token: _token, _decimals: _decimals, _name: _name, _symbol: _symbol });
 
         emit GasPayingTokenSet({ token: _token, decimals: _decimals, name: _name, symbol: _symbol });
+    }
+
+    // ----------------------------------------------------------------
+    // >>> New state (appended at the end to preserve original layout)
+    // ----------------------------------------------------------------
+
+    /// @notice CGT per 1 ETH using RAY precision (1e27). Default = 1.0 => no-op.
+    uint256 public cgtPerEthRay = 1e27;
+
+    /// @notice Optional admin allowed to update the rate besides the depositor.
+    address public rateAdmin;
+
+    event CgtPerEthRayUpdated(uint256 oldRate, uint256 newRate);
+    event RateAdminUpdated(address indexed oldAdmin, address indexed newAdmin);
+
+    /// @notice Sets the optional rate admin. Only the depositor can set it.
+    function setRateAdmin(address newAdmin) external {
+        if (msg.sender != DEPOSITOR_ACCOUNT()) revert NotDepositor();
+        emit RateAdminUpdated(rateAdmin, newAdmin);
+        rateAdmin = newAdmin;
+    }
+
+    /// @notice Set CGT/ETH rate in RAY precision. Callable by depositor or rateAdmin.
+    /// Example: 1 ETH = 5 CGT  => newRateRay = 5e27
+    function setCgtPerEthRay(uint256 newRateRay) external {
+        if (msg.sender != DEPOSITOR_ACCOUNT() && msg.sender != rateAdmin) revert NotDepositor();
+        emit CgtPerEthRayUpdated(cgtPerEthRay, newRateRay);
+        cgtPerEthRay = newRateRay;
     }
 }
