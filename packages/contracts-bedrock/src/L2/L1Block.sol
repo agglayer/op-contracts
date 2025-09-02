@@ -249,4 +249,16 @@ contract L1Block is ISemver, IGasToken {
         emit CgtPerEthRayUpdated(cgtPerEthRay, newRateRay);
         cgtPerEthRay = newRateRay;
     }
+
+    /// @notice Initialize CGT/ETH rate and rate admin. Callable only once at deployment.
+    function initializeCgt(address newAdmin, uint256 rateRay) external {
+        // Allow only once: rateAdmin is zero at deployment
+        require(rateAdmin == address(0), "already initialized");
+        // Basic sanity checks (opcionales)
+        require(newAdmin != address(0), "admin=0");
+        require(rateRay > 0, "rate=0");
+
+        rateAdmin = newAdmin;
+        cgtPerEthRay = rateRay; // e.g. 1e27 for no-op
+    }
 }
