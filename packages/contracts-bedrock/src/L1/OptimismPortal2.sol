@@ -178,9 +178,9 @@ contract OptimismPortal2 is Initializable, ResourceMetering, ISemver {
     }
 
     /// @notice Semantic version.
-    /// @custom:semver 3.14.0
+    /// @custom:semver 3.15.0
     function version() public pure virtual returns (string memory) {
-        return "3.14.0";
+        return "agg3.15.0";
     }
 
     /// @notice Constructs the OptimismPortal contract.
@@ -454,7 +454,12 @@ contract OptimismPortal2 is Initializable, ResourceMetering, ISemver {
         payable
         metered(_gasLimit)
     {
-        require(false, "Deposit transactions are disabled");
+        // Disabling ETH bridging
+        require(msg.value == 0, "Bridging ETH is disabled");
+
+        // Disabling token bridging
+        require(msg.sender != systemConfig.l1StandardBridge() && msg.sender != systemConfig.l1ERC721Bridge(), "Bridging tokens is disabled");
+
         // Just to be safe, make sure that people specify address(0) as the target when doing
         // contract creations.
         if (_isCreation && _to != address(0)) revert BadTarget();

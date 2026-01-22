@@ -1,0 +1,14 @@
+{
+  "1": {
+      "optimismPortalProxy": "0x250D30c523104bf0a06825e7eAdE4Dc46EdfE40E",
+      "proxyAdmin": "0x19DbD16f0a8e706D817B7e3b7bcF72917Ebb8832"
+  },
+  "11155111": {
+      "optimismPortalProxy": "0x456ea98d6dc12292be5e344637cb9de7cab396ce",
+      "proxyAdmin": "0xf19ccf0C702589fA60565690b90B53293B9750Df"
+  },
+  "271828": {
+      "optimismPortalProxy": "0xaf8117e94e4dd0501c119d3999876b8c0d53030a",
+      "proxyAdmin": "0x388d733521b7BAcBA44f666152a1dc10ad53DFbC"
+  }
+}

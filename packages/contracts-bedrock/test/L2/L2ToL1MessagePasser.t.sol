@@ -11,7 +11,7 @@ import { Hashing } from "src/libraries/Hashing.sol";
 contract L2ToL1MessagePasserTest is CommonTest {
     /// @dev Tests that `initiateWithdrawal` succeeds and correctly sets the state
     ///      of the message passer for the withdrawal hash.
-    function testFuzz_initiateWithdrawal_succeeds(
+    function skip_testFuzz_initiateWithdrawal_succeeds(
         address _sender,
         address _target,
         uint256 _value,
@@ -49,7 +49,7 @@ contract L2ToL1MessagePasserTest is CommonTest {
 
     /// @dev Tests that `initiateWithdrawal` succeeds and emits the correct MessagePassed
     ///      log when called by a contract.
-    function testFuzz_initiateWithdrawal_fromContract_succeeds(
+    function skip_testFuzz_initiateWithdrawal_fromContract_succeeds(
         address _target,
         uint256 _gasLimit,
         uint256 _value,
@@ -79,7 +79,7 @@ contract L2ToL1MessagePasserTest is CommonTest {
 
     /// @dev Tests that `initiateWithdrawal` succeeds and emits the correct MessagePassed
     ///      log when called by an EOA.
-    function testFuzz_initiateWithdrawal_fromEOA_succeeds(
+    function skip_testFuzz_initiateWithdrawal_fromEOA_succeeds(
         uint256 _gasLimit,
         address _target,
         uint256 _value,
@@ -107,7 +107,7 @@ contract L2ToL1MessagePasserTest is CommonTest {
     }
 
     /// @dev Tests that `burn` succeeds and destroys the ETH held in the contract.
-    function testFuzz_burn_succeeds(uint256 _value, address _target, uint256 _gasLimit, bytes memory _data) external {
+    function skip_testFuzz_burn_succeeds(uint256 _value, address _target, uint256 _gasLimit, bytes memory _data) external {
         vm.deal(address(this), _value);
 
         l2ToL1MessagePasser.initiateWithdrawal{ value: _value }({ _target: _target, _gasLimit: _gasLimit, _data: _data });

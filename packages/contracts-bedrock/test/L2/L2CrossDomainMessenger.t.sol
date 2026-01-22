@@ -44,7 +44,7 @@ contract L2CrossDomainMessenger_Test is CommonTest {
     }
 
     /// @dev Tests that `sendMessage` executes successfully.
-    function test_sendMessage_succeeds() external {
+    function test_sendMessage_fails() external {
         bytes memory xDomainCallData =
             Encoding.encodeCrossDomainMessage(l2CrossDomainMessenger.messageNonce(), alice, recipient, 0, 100, hex"ff");
         vm.expectCall(
@@ -55,26 +55,7 @@ contract L2CrossDomainMessenger_Test is CommonTest {
             )
         );
 
-        // MessagePassed event
-        vm.expectEmit(true, true, true, true);
-        emit MessagePassed(
-            l2ToL1MessagePasser.messageNonce(),
-            address(l2CrossDomainMessenger),
-            address(l1CrossDomainMessenger),
-            0,
-            l2CrossDomainMessenger.baseGas(hex"ff", 100),
-            xDomainCallData,
-            Hashing.hashWithdrawal(
-                Types.WithdrawalTransaction({
-                    nonce: l2ToL1MessagePasser.messageNonce(),
-                    sender: address(l2CrossDomainMessenger),
-                    target: address(l1CrossDomainMessenger),
-                    value: 0,
-                    gasLimit: l2CrossDomainMessenger.baseGas(hex"ff", 100),
-                    data: xDomainCallData
-                })
-            )
-        );
+        vm.expectRevert("Withdrawals are disabled");
 
         vm.prank(alice);
         l2CrossDomainMessenger.sendMessage(recipient, hex"ff", uint32(100));
@@ -82,7 +63,7 @@ contract L2CrossDomainMessenger_Test is CommonTest {
 
     /// @dev Tests that `sendMessage` can be called twice and that
     ///      the nonce increments correctly.
-    function test_sendMessage_twice_succeeds() external {
+    function skip_test_sendMessage_twice_succeeds() external {
         uint256 nonce = l2CrossDomainMessenger.messageNonce();
         l2CrossDomainMessenger.sendMessage(recipient, hex"aa", uint32(500_000));
         l2CrossDomainMessenger.sendMessage(recipient, hex"aa", uint32(500_000));
