@@ -620,7 +620,7 @@ contract OptimismPortal2_NumProofSubmitters_Test is OptimismPortal2_TestInit {
 /// @notice Test contract for OptimismPortal2 `receive` function.
 contract OptimismPortal2_Receive_Test is OptimismPortal2_TestInit {
     /// @notice Tests that `receive` successdully deposits ETH.
-    function testFuzz_receive_succeeds(uint256 _value) external {
+    function skip_testFuzz_receive_succeeds(uint256 _value) external {
         // Prevent overflow on an upgrade context
         _value = bound(_value, 0, type(uint256).max - address(ethLockbox).balance);
         uint256 balanceBefore = address(optimismPortal2).balance;
@@ -658,7 +658,7 @@ contract OptimismPortal2_Receive_Test is OptimismPortal2_TestInit {
         }
     }
 
-    function testFuzz_receive_withLockbox_succeeds(uint256 _value) external {
+    function skip_testFuzz_receive_withLockbox_succeeds(uint256 _value) external {
         // Prevent overflow on an upgrade context.
         // We use a dummy lockbox here because the real one won't work for upgrade tests.
         address dummyLockbox = address(0xdeadbeef);
@@ -2452,6 +2452,17 @@ contract OptimismPortal2_DepositTransaction_Test is OptimismPortal2_TestInit {
         optimismPortal2.depositTransaction({ _to: address(1), _value: 0, _gasLimit: 0, _isCreation: false, _data: hex"" });
     }
 
+    /// @notice Tests that `depositTransaction` reverts when the sender is the L1 Standard Bridge or L1 ERC721 Bridge.
+    function test_depositTransaction_bridging_reverts() external {
+        vm.prank(systemConfig.l1StandardBridge());
+        vm.expectRevert("Bridging tokens is disabled");
+        optimismPortal2.depositTransaction({ _to: address(1), _value: 0, _gasLimit: 0, _isCreation: false, _data: hex"" });
+
+        vm.prank(systemConfig.l1ERC721Bridge());
+        vm.expectRevert("Bridging tokens is disabled");
+        optimismPortal2.depositTransaction({ _to: address(1), _value: 0, _gasLimit: 0, _isCreation: false, _data: hex"" });
+    }
+
     /// @notice Tests that `depositTransaction` succeeds for small, but sufficient, gas limits.
     function testFuzz_depositTransaction_smallGasLimit_succeeds(bytes memory _data, bool _shouldFail) external {
         uint64 gasLimit = optimismPortal2.minimumGasLimit(uint64(_data.length));
@@ -2493,7 +2504,10 @@ contract OptimismPortal2_DepositTransaction_Test is OptimismPortal2_TestInit {
 
         uint256 balanceBefore = address(optimismPortal2).balance;
         uint256 lockboxBalanceBefore = address(ethLockbox).balance;
-        _mint = bound(_mint, 0, type(uint256).max - balanceBefore);
+
+        // always 0, no ETH transfers allowed
+        _mint = 0;
+        _value = 0;
 
         // EOA emulation
         vm.expectEmit(address(optimismPortal2));
@@ -2558,7 +2572,10 @@ contract OptimismPortal2_DepositTransaction_Test is OptimismPortal2_TestInit {
 
         uint256 portalBalanceBefore = address(optimismPortal2).balance;
         uint256 lockboxBalanceBefore = address(ethLockbox).balance;
-        _mint = bound(_mint, 0, type(uint256).max - portalBalanceBefore);
+
+        // always 0, no ETH transfers allowed
+        _mint = 0;
+        _value = 0;
 
         // EOA emulation
         vm.expectEmit(address(optimismPortal2));
@@ -2617,7 +2634,10 @@ contract OptimismPortal2_DepositTransaction_Test is OptimismPortal2_TestInit {
 
         uint256 balanceBefore = address(optimismPortal2).balance;
         uint256 lockboxBalanceBefore = address(ethLockbox).balance;
-        _mint = bound(_mint, 0, type(uint256).max - balanceBefore);
+
+        // always 0, no ETH transfers allowed
+        _mint = 0;
+        _value = 0;
 
         vm.expectEmit(address(optimismPortal2));
         emitTransactionDeposited({

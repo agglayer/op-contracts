@@ -58,7 +58,7 @@ contract L2CrossDomainMessenger_Initialize_Test is L2CrossDomainMessenger_TestIn
 /// @notice Tests the `sendMessage` function of the `L2CrossDomainMessenger` contract.
 contract L2CrossDomainMessenger_SendMessage_Test is L2CrossDomainMessenger_TestInit {
     /// @notice Tests that `sendMessage` executes successfully with various target addresses and gas limits.
-    function testFuzz_sendMessage_withValidTargetAndGasLimit_succeeds(address _target, uint32 _minGasLimit) external {
+    function skip_testFuzz_sendMessage_withValidTargetAndGasLimit_succeeds(address _target, uint32 _minGasLimit) external {
         vm.assume(_target != address(0));
         _minGasLimit = uint32(bound(_minGasLimit, 21000, 30_000_000));
 
@@ -71,7 +71,7 @@ contract L2CrossDomainMessenger_SendMessage_Test is L2CrossDomainMessenger_TestI
     }
 
     /// @notice Tests that `sendMessage` executes successfully with the original test case.
-    function test_sendMessage_succeeds() external {
+    function test_sendMessage_fails() external {
         bytes memory xDomainCallData =
             Encoding.encodeCrossDomainMessage(l2CrossDomainMessenger.messageNonce(), alice, recipient, 0, 100, hex"ff");
         vm.expectCall(
@@ -82,32 +82,36 @@ contract L2CrossDomainMessenger_SendMessage_Test is L2CrossDomainMessenger_TestI
             )
         );
 
-        vm.expectEmit(true, true, true, true);
-        emit MessagePassed(
-            l2ToL1MessagePasser.messageNonce(),
-            address(l2CrossDomainMessenger),
-            address(l1CrossDomainMessenger),
-            0,
-            l2CrossDomainMessenger.baseGas(hex"ff", 100),
-            xDomainCallData,
-            Hashing.hashWithdrawal(
-                Types.WithdrawalTransaction({
-                    nonce: l2ToL1MessagePasser.messageNonce(),
-                    sender: address(l2CrossDomainMessenger),
-                    target: address(l1CrossDomainMessenger),
-                    value: 0,
-                    gasLimit: l2CrossDomainMessenger.baseGas(hex"ff", 100),
-                    data: xDomainCallData
-                })
-            )
-        );
+        // Withdrawals are disabled, so this should revert
+
+        // vm.expectEmit(true, true, true, true);
+        // emit MessagePassed(
+        //     l2ToL1MessagePasser.messageNonce(),
+        //     address(l2CrossDomainMessenger),
+        //     address(l1CrossDomainMessenger),
+        //     0,
+        //     l2CrossDomainMessenger.baseGas(hex"ff", 100),
+        //     xDomainCallData,
+        //     Hashing.hashWithdrawal(
+        //         Types.WithdrawalTransaction({
+        //             nonce: l2ToL1MessagePasser.messageNonce(),
+        //             sender: address(l2CrossDomainMessenger),
+        //             target: address(l1CrossDomainMessenger),
+        //             value: 0,
+        //             gasLimit: l2CrossDomainMessenger.baseGas(hex"ff", 100),
+        //             data: xDomainCallData
+        //         })
+        //     )
+        // );
+
+        vm.expectRevert("Withdrawals are disabled");
 
         vm.prank(alice);
         l2CrossDomainMessenger.sendMessage(recipient, hex"ff", uint32(100));
     }
 
     /// @notice Tests that `sendMessage` can be called twice and that the nonce increments correctly.
-    function test_sendMessage_twice_succeeds() external {
+    function skip_test_sendMessage_twice_succeeds() external {
         uint256 nonce = l2CrossDomainMessenger.messageNonce();
         l2CrossDomainMessenger.sendMessage(recipient, hex"aa", uint32(500_000));
         l2CrossDomainMessenger.sendMessage(recipient, hex"aa", uint32(500_000));

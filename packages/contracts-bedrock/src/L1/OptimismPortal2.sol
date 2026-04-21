@@ -204,10 +204,11 @@ contract OptimismPortal2 is Initializable, ResourceMetering, ReinitializableBase
     /// @notice Thrown when ETHLockbox is set/unset incorrectly depending on the feature flag.
     error OptimismPortal_InvalidLockboxState();
 
+    // TODO : 0xsharma : change version
     /// @notice Semantic version.
-    /// @custom:semver 5.1.1
+    /// @custom:semver 3.15.0
     function version() public pure virtual returns (string memory) {
-        return "5.1.1";
+        return "agg3.15.0";
     }
 
     /// @param _proofMaturityDelaySeconds The proof maturity delay in seconds.
@@ -397,11 +398,11 @@ contract OptimismPortal2 is Initializable, ResourceMetering, ReinitializableBase
         // be relayed on L1.
         if (
             SecureMerkleTrie.verifyInclusionProof({
-                _key: abi.encode(storageKey),
-                _value: hex"01",
-                _proof: _withdrawalProof,
-                _root: _outputRootProof.messagePasserStorageRoot
-            }) == false
+                    _key: abi.encode(storageKey),
+                    _value: hex"01",
+                    _proof: _withdrawalProof,
+                    _root: _outputRootProof.messagePasserStorageRoot
+                }) == false
         ) {
             revert OptimismPortal_InvalidMerkleProof();
         }
@@ -560,6 +561,15 @@ contract OptimismPortal2 is Initializable, ResourceMetering, ReinitializableBase
         payable
         metered(_gasLimit)
     {
+        // Disabling ETH bridging
+        require(msg.value == 0, "Bridging ETH is disabled");
+
+        // Disabling token bridging
+        require(
+            msg.sender != systemConfig.l1StandardBridge() && msg.sender != systemConfig.l1ERC721Bridge(),
+            "Bridging tokens is disabled"
+        );
+
         // If using ETHLockbox, lock the ETH in the ETHLockbox.
         if (_isUsingLockbox()) {
             if (msg.value > 0) ethLockbox.lockETH{ value: msg.value }();
