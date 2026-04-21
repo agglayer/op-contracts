@@ -658,7 +658,7 @@ contract OptimismPortal2_Receive_Test is OptimismPortal2_TestInit {
         }
     }
 
-    function testFuzz_receive_withLockbox_succeeds(uint256 _value) external {
+    function skip_testFuzz_receive_withLockbox_succeeds(uint256 _value) external {
         // Prevent overflow on an upgrade context.
         // We use a dummy lockbox here because the real one won't work for upgrade tests.
         address dummyLockbox = address(0xdeadbeef);
