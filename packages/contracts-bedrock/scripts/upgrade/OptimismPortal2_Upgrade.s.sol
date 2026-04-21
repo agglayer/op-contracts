@@ -11,7 +11,7 @@ contract UpgradeOptimismPortal2 is Script {
 
     function run() external {
         // owner of ProxyAdmin is needed
-        uint256 deployerPrivateKey = vm.promptSecretUint("PRIVATE_KEY");
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 
         string memory input = vm.readFile("scripts/upgrade/input.json");
         string memory chainIdSlug = string(abi.encodePacked('["', vm.toString(block.chainid), '"]'));
@@ -20,20 +20,18 @@ contract UpgradeOptimismPortal2 is Script {
 
         OptimismPortal2 oldOp2 = OptimismPortal2(payable(optimismPortalProxy));
         uint256 proofMaturityDelaySeconds = oldOp2.proofMaturityDelaySeconds();
-        uint256 disputeGameFinalityDelaySeconds = oldOp2.disputeGameFinalityDelaySeconds();
 
         vm.startBroadcast(deployerPrivateKey);
 
         // deploy new implementation
-        address newImpl = address(new OptimismPortal2(proofMaturityDelaySeconds, disputeGameFinalityDelaySeconds));
+        address newImpl = address(new OptimismPortal2(proofMaturityDelaySeconds));
 
         // upgrade proxy
         bytes memory payload = abi.encodeCall(ProxyAdmin.upgrade, (payable(optimismPortalProxy), newImpl));
         console.log("payload to be sent to: ", proxyAdmin);
         console.logBytes(payload);
 
-        // for testing
-        // ProxyAdmin(proxyAdmin).upgrade(payable(optimismPortalProxy), newImpl);
+        ProxyAdmin(proxyAdmin).upgrade(payable(optimismPortalProxy), newImpl);
 
         vm.stopBroadcast();
     }
