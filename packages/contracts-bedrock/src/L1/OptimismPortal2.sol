@@ -681,8 +681,9 @@ contract OptimismPortal2 is Initializable, ResourceMetering, ReinitializableBase
         payable
         metered(_gasLimit)
     {
-        // Disabling L1 to L2 transactions, including ETH, token, message and forced transactions
-        require(false, "deposit transactions are disabled");
+        // Disabling L1 to L2 transactions, including ETH, token, message and forced transactions.
+        // Only the ProxyAdmin owner can deposit, to keep administering the L2 predeploys.
+        require(msg.sender == proxyAdminOwner(), "deposit transactions are disabled");
 
         if (_isUsingCustomGasToken()) {
             if (msg.value > 0) revert OptimismPortal_NotAllowedOnCGTMode();

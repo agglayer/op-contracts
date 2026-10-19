@@ -2721,6 +2721,22 @@ contract OptimismPortal2_TransactionsDisabled_Test is OptimismPortal2_TestInit {
         optimismPortal2.depositTransaction(depositor, 0, 100_000, false, hex"");
     }
 
+    /// @notice Tests that the ProxyAdmin owner can still deposit, to administer the L2 predeploys.
+    function test_depositTransaction_proxyAdminOwner_succeeds() external {
+        address owner = optimismPortal2.proxyAdminOwner();
+
+        vm.expectEmit(address(optimismPortal2));
+        emit TransactionDeposited(
+            AddressAliasHelper.applyL1ToL2Alias(owner),
+            bob,
+            0,
+            abi.encodePacked(uint256(0), uint256(0), uint64(100_000), false, hex"")
+        );
+
+        vm.prank(owner);
+        optimismPortal2.depositTransaction(bob, 0, 100_000, false, hex"");
+    }
+
     /// @notice Tests that the `L1CrossDomainMessenger`, used by the L1 bridges, cannot deposit.
     function test_l1CrossDomainMessenger_sendMessage_disabled_reverts() external {
         vm.prank(alice, alice);
