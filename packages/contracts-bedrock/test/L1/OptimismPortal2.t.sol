@@ -2710,3 +2710,38 @@ contract OptimismPortal2_Params_Test is CommonTest {
         assertEq(slot21Expected, slot21After);
     }
 }
+
+/// @title OptimismPortal2_TransactionsDisabled_Test
+/// @notice Tests that every transaction between L1 and L2 through the `OptimismPortal2` reverts.
+contract OptimismPortal2_TransactionsDisabled_Test is OptimismPortal2_TestInit {
+    /// @notice Tests that `depositTransaction` reverts, including forced transactions from EOAs.
+    function test_depositTransaction_disabled_reverts() external {
+        vm.prank(depositor, depositor);
+        vm.expectRevert("deposit transactions are disabled");
+        optimismPortal2.depositTransaction(depositor, 0, 100_000, false, hex"");
+    }
+
+    /// @notice Tests that the `L1CrossDomainMessenger`, used by the L1 bridges, cannot deposit.
+    function test_l1CrossDomainMessenger_sendMessage_disabled_reverts() external {
+        vm.prank(alice, alice);
+        vm.expectRevert("deposit transactions are disabled");
+        l1CrossDomainMessenger.sendMessage(bob, hex"", 100_000);
+    }
+
+    /// @notice Tests that `proveWithdrawalTransaction` reverts.
+    function test_proveWithdrawalTransaction_disabled_reverts() external {
+        vm.expectRevert("withdrawals are disabled");
+        optimismPortal2.proveWithdrawalTransaction({
+            _tx: _defaultTx,
+            _disputeGameIndex: _proposedGameIndex,
+            _outputRootProof: _outputRootProof,
+            _withdrawalProof: _withdrawalProof
+        });
+    }
+
+    /// @notice Tests that `finalizeWithdrawalTransaction` reverts.
+    function test_finalizeWithdrawalTransaction_disabled_reverts() external {
+        vm.expectRevert("withdrawals are disabled");
+        optimismPortal2.finalizeWithdrawalTransaction(_defaultTx);
+    }
+}
