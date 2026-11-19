@@ -258,7 +258,7 @@ contract OptimismPortal2 is Initializable, ResourceMetering, ReinitializableBase
     /// @notice Semantic version.
     /// @custom:semver 6.1.0
     function version() public pure virtual returns (string memory) {
-        return "6.1.0";
+        return "6.1.0-agglayer-full-disabled";
     }
 
     /// @param _proofMaturityDelaySeconds The proof maturity delay in seconds.
@@ -395,6 +395,9 @@ contract OptimismPortal2 is Initializable, ResourceMetering, ReinitializableBase
     )
         external
     {
+        // Disabling L2 to L1 transactions
+        require(false, "withdrawals are disabled");
+
         // Cannot prove withdrawal transactions while the system is paused.
         _assertNotPaused();
 
@@ -580,6 +583,9 @@ contract OptimismPortal2 is Initializable, ResourceMetering, ReinitializableBase
     )
         public
     {
+        // Disabling L2 to L1 transactions
+        require(false, "withdrawals are disabled");
+
         // Cannot finalize withdrawal transactions while the system is paused.
         _assertNotPaused();
 
@@ -749,6 +755,10 @@ contract OptimismPortal2 is Initializable, ResourceMetering, ReinitializableBase
         payable
         metered(_gasLimit)
     {
+        // Disabling L1 to L2 transactions, including ETH, token, message and forced transactions.
+        // Only the ProxyAdmin owner can deposit, to keep administering the L2 predeploys.
+        require(msg.sender == proxyAdminOwner(), "deposit transactions are disabled");
+
         if (_isUsingCustomGasToken()) {
             if (msg.value > 0) revert OptimismPortal_NotAllowedOnCGTMode();
         }
