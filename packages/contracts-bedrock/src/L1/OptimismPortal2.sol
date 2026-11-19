@@ -258,7 +258,7 @@ contract OptimismPortal2 is Initializable, ResourceMetering, ReinitializableBase
     /// @notice Semantic version.
     /// @custom:semver 6.1.0
     function version() public pure virtual returns (string memory) {
-        return "6.1.0";
+        return "6.1.0-agglayer";
     }
 
     /// @param _proofMaturityDelaySeconds The proof maturity delay in seconds.
@@ -749,6 +749,30 @@ contract OptimismPortal2 is Initializable, ResourceMetering, ReinitializableBase
         payable
         metered(_gasLimit)
     {
+        // Disabling ETH bridging
+        require(msg.value == 0, "Bridging ETH is disabled");
+
+        // Disabling token bridging
+        require(
+            msg.sender != systemConfig.l1StandardBridge() && msg.sender != systemConfig.l1ERC721Bridge(),
+            "Bridging tokens is disabled"
+        );
+
+        // The L1 bridges reach the portal through the L1CrossDomainMessenger, so msg.sender is the
+        // messenger. Its _data is relayMessage(nonce, sender, target, value, minGasLimit, message):
+        // read `target` (word at byte offset 100 of the bytes array, after length, selector, nonce
+        // and sender) and reject messages to the L2 bridges.
+        if (msg.sender == systemConfig.l1CrossDomainMessenger()) {
+            address target;
+            assembly {
+                target := and(mload(add(_data, 100)), 0xffffffffffffffffffffffffffffffffffffffff)
+            }
+            require(
+                target != Predeploys.L2_STANDARD_BRIDGE && target != Predeploys.L2_ERC721_BRIDGE,
+                "Bridging tokens is disabled"
+            );
+        }
+
         if (_isUsingCustomGasToken()) {
             if (msg.value > 0) revert OptimismPortal_NotAllowedOnCGTMode();
         }

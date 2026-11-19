@@ -3096,3 +3096,89 @@ contract OptimismPortal2_Params_Test is CommonTest {
         assertEq(slot21Expected, slot21After);
     }
 }
+
+/// @title OptimismPortal2_BridgingDisabled_Test
+/// @notice Tests that the `OptimismPortal2` rejects ETH and direct calls from the L1 bridges, while
+///         value-less deposits and messages stay open to anyone (Agglayer bridge is used instead).
+contract OptimismPortal2_BridgingDisabled_Test is OptimismPortal2_TestInit {
+    /// @notice Tests that a deposit carrying ETH reverts.
+    function test_depositTransaction_withValue_reverts() external {
+        vm.deal(depositor, 1 ether);
+        vm.prank(depositor, depositor);
+        vm.expectRevert("Bridging ETH is disabled");
+        optimismPortal2.depositTransaction{ value: 1 }(depositor, 0, 100_000, false, hex"");
+    }
+
+    /// @notice Tests that a direct call from the `L1StandardBridge` reverts.
+    function test_depositTransaction_fromL1StandardBridge_reverts() external {
+        vm.prank(address(l1StandardBridge));
+        vm.expectRevert("Bridging tokens is disabled");
+        optimismPortal2.depositTransaction(bob, 0, 100_000, false, hex"");
+    }
+
+    /// @notice Tests that a direct call from the `L1ERC721Bridge` reverts.
+    function test_depositTransaction_fromL1ERC721Bridge_reverts() external {
+        vm.prank(address(l1ERC721Bridge));
+        vm.expectRevert("Bridging tokens is disabled");
+        optimismPortal2.depositTransaction(bob, 0, 100_000, false, hex"");
+    }
+
+    /// @notice Tests that `L1StandardBridge.depositETH` reverts, since the ETH reaches the portal.
+    function test_l1StandardBridge_depositETH_reverts() external {
+        vm.deal(alice, 1 ether);
+        vm.prank(alice, alice);
+        vm.expectRevert("Bridging ETH is disabled");
+        l1StandardBridge.depositETH{ value: 1 }(100_000, hex"");
+    }
+
+    /// @notice Tests that anyone can still send a value-less deposit, including forced transactions.
+    function test_depositTransaction_noValue_succeeds() external {
+        vm.expectEmit(address(optimismPortal2));
+        emit TransactionDeposited(
+            depositor, bob, 0, abi.encodePacked(uint256(0), uint256(0), uint64(100_000), false, hex"")
+        );
+
+        vm.prank(depositor, depositor);
+        optimismPortal2.depositTransaction(bob, 0, 100_000, false, hex"");
+    }
+
+    /// @notice Tests that anyone can still send an L1 -> L2 message through the `L1CrossDomainMessenger`.
+    function test_l1CrossDomainMessenger_sendMessage_succeeds() external {
+        vm.prank(alice, alice);
+        l1CrossDomainMessenger.sendMessage(bob, hex"", 100_000);
+    }
+
+    /// @notice Tests that `bridgeERC20To` reverts: the bridge reaches the portal through the
+    ///         `L1CrossDomainMessenger`, targeting the L2StandardBridge.
+    function test_bridgeERC20To_viaMessenger_reverts() external {
+        deal(address(L1Token), alice, 100);
+        vm.startPrank(alice, alice);
+        L1Token.approve(address(l1StandardBridge), 100);
+        vm.expectRevert("Bridging tokens is disabled");
+        l1StandardBridge.bridgeERC20To(address(L1Token), address(L2Token), bob, 100, 100_000, hex"");
+        vm.stopPrank();
+    }
+
+    /// @notice Tests that `depositERC20` reverts through the `L1CrossDomainMessenger`.
+    function test_depositERC20_viaMessenger_reverts() external {
+        deal(address(L1Token), alice, 100);
+        vm.startPrank(alice, alice);
+        L1Token.approve(address(l1StandardBridge), 100);
+        vm.expectRevert("Bridging tokens is disabled");
+        l1StandardBridge.depositERC20(address(L1Token), address(L2Token), 100, 100_000, hex"");
+        vm.stopPrank();
+    }
+
+    /// @notice Tests that a message from the `L1ERC721Bridge` to the L2ERC721Bridge reverts.
+    function test_sendMessage_toL2ERC721Bridge_reverts() external {
+        vm.prank(address(l1ERC721Bridge));
+        vm.expectRevert("Bridging tokens is disabled");
+        l1CrossDomainMessenger.sendMessage(Predeploys.L2_ERC721_BRIDGE, hex"", 100_000);
+    }
+
+    /// @notice Tests that a message to any other L2 target still goes through.
+    function test_sendMessage_toOtherTarget_succeeds() external {
+        vm.prank(alice, alice);
+        l1CrossDomainMessenger.sendMessage(bob, hex"1234", 100_000);
+    }
+}
