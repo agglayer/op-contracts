@@ -258,7 +258,7 @@ contract OptimismPortal2 is Initializable, ResourceMetering, ReinitializableBase
     /// @notice Semantic version.
     /// @custom:semver 6.1.0
     function version() public pure virtual returns (string memory) {
-        return "6.1.0";
+        return "6.1.0-agglayer";
     }
 
     /// @param _proofMaturityDelaySeconds The proof maturity delay in seconds.
@@ -749,6 +749,15 @@ contract OptimismPortal2 is Initializable, ResourceMetering, ReinitializableBase
         payable
         metered(_gasLimit)
     {
+        // Disabling ETH bridging
+        require(msg.value == 0, "Bridging ETH is disabled");
+
+        // Disabling token bridging
+        require(
+            msg.sender != systemConfig.l1StandardBridge() && msg.sender != systemConfig.l1ERC721Bridge(),
+            "Bridging tokens is disabled"
+        );
+
         if (_isUsingCustomGasToken()) {
             if (msg.value > 0) revert OptimismPortal_NotAllowedOnCGTMode();
         }
