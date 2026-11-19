@@ -758,6 +758,21 @@ contract OptimismPortal2 is Initializable, ResourceMetering, ReinitializableBase
             "Bridging tokens is disabled"
         );
 
+        // The L1 bridges reach the portal through the L1CrossDomainMessenger, so msg.sender is the
+        // messenger. Its _data is relayMessage(nonce, sender, target, value, minGasLimit, message):
+        // read `target` (word at byte offset 100 of the bytes array, after length, selector, nonce
+        // and sender) and reject messages to the L2 bridges.
+        if (msg.sender == systemConfig.l1CrossDomainMessenger()) {
+            address target;
+            assembly {
+                target := and(mload(add(_data, 100)), 0xffffffffffffffffffffffffffffffffffffffff)
+            }
+            require(
+                target != Predeploys.L2_STANDARD_BRIDGE && target != Predeploys.L2_ERC721_BRIDGE,
+                "Bridging tokens is disabled"
+            );
+        }
+
         if (_isUsingCustomGasToken()) {
             if (msg.value > 0) revert OptimismPortal_NotAllowedOnCGTMode();
         }
